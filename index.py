@@ -6,6 +6,14 @@ from playwright.sync_api import sync_playwright
 def retry_action(action, retries=3, delay=5):
     """
     Mengulangi tindakan tertentu hingga berhasil atau mencapai batas percobaan.
+    
+    Args:
+        action (function): Fungsi yang akan dijalankan.
+        retries (int): Jumlah maksimal percobaan.
+        delay (int): Waktu tunggu (dalam detik) antar percobaan.
+
+    Returns:
+        bool: True jika tindakan berhasil, False jika semua percobaan gagal.
     """
     for attempt in range(retries):
         try:
@@ -17,15 +25,15 @@ def retry_action(action, retries=3, delay=5):
     print("\033[31mSemua percobaan gagal.\033[0m")
     return False
 
-# Fungsi untuk mendapatkan email acak dengan prefix dari user
-def generate_email(prefix):
+# Fungsi untuk mendapatkan email acak
+def generate_email(email_base):
     random_number = random.randint(1000, 9999)
-    return f"{prefix}{random_number}@mailto.plus", f"{prefix}{random_number}"
+    return f"{email_base}{random_number}@mailto.plus", f"{email_base}{random_number}"
 
 # Fungsi untuk menunggu pemuatan halaman dinamis
 def wait_until_page_loaded(page, timeout=60000):
     try:
-        page.wait_for_load_state("networkidle", timeout=timeout)
+        page.wait_for_load_state("networkidle", timeout=timeout)  # Tunggu hingga tidak ada aktivitas jaringan
         print("\033[32mHalaman selesai dimuat.\033[0m")
         return True
     except Exception as e:
@@ -76,7 +84,7 @@ def confirm_email(context, email_username):
     return retry_action(confirm)
 
 # Fungsi untuk menjalankan proses referral
-def restart_process(driver, referrals, referral_link, email_prefix):
+def restart_process(driver, referrals, referral_link, email_base, default_password):
     failed_referrals = 0
     successful_referrals = 0
 
@@ -95,18 +103,18 @@ def restart_process(driver, referrals, referral_link, email_prefix):
                 if not wait_until_page_loaded(page):
                     page.close()
                     return False
-                print("\033[34mBerhasil membuka halaman referral.\033[0m")
+                print("\033[34mBerhasil membuka halaman BlockMesh.\033[0m")
             except Exception as e:
-                print(f"\033[31mGagal mengakses halaman referral: {e}\033[0m")
+                print(f"\033[31mGagal mengakses BlockMesh: {e}\033[0m")
                 page.close()
                 return False
 
             # Daftar akun
             try:
-                email, email_username = generate_email(email_prefix)
+                email, email_username = generate_email(email_base)
                 page.fill("#email", email)
-                page.fill("#password", "Akun12345$")
-                page.fill("#password_confirm", "Akun12345$")
+                page.fill("#password", default_password)
+                page.fill("#password_confirm", default_password)
                 page.click("button[type='submit']")
                 if not wait_until_page_loaded(page):
                     page.close()
@@ -143,23 +151,17 @@ def restart_process(driver, referrals, referral_link, email_prefix):
 
 # Fungsi utama
 def main():
-    referral_link = input("Masukkan link referral Anda: ").strip()
-    if not referral_link.startswith("http"):
-        print("\033[31mLink referral tidak valid! Harap masukkan URL lengkap.\033[0m")
-        return
-
-    email_prefix = input("Masukkan nama untuk email akun (tanpa spasi, contoh: akungarapan): ").strip()
-    if not email_prefix.isalnum():
-        print("\033[31mNama email tidak valid! Harap gunakan hanya huruf dan angka.\033[0m")
-        return
-
-    referrals = int(input("Berapa referral yang ingin Anda buat? : "))
+    print("=== Konfigurasi Proses Referral ===")
+    referral_link = input("Masukkan Link Referral: ")
+    email_base = input("Masukkan Nama Akun Email (contoh: akunbm): ")
+    default_password = input("Masukkan Password Default: ")
+    referrals = int(input("Berapa Referral yang ingin Anda buat? : "))
     
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         context = browser.new_context()
         
-        restart_process(context, referrals, referral_link, email_prefix)
+        restart_process(context, referrals, referral_link, email_base, default_password)
 
 if __name__ == "__main__":
     main()
