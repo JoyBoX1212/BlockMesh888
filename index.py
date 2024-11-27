@@ -2,42 +2,37 @@ import time
 import random
 from playwright.sync_api import sync_playwright
 
+# Fungsi logging
+def log_message(message, level="INFO"):
+    levels = {"INFO": "\033[34m", "SUCCESS": "\033[32m", "ERROR": "\033[31m"}
+    prefix = levels.get(level, "\033[34m")
+    print(f"{prefix}[{time.strftime('%Y-%m-%d %H:%M:%S')}] {message}\033[0m")
+
 # Fungsi retry_action
 def retry_action(action, retries=3, delay=5):
-    """
-    Mengulangi tindakan tertentu hingga berhasil atau mencapai batas percobaan.
-    
-    Args:
-        action (function): Fungsi yang akan dijalankan.
-        retries (int): Jumlah maksimal percobaan.
-        delay (int): Waktu tunggu (dalam detik) antar percobaan.
-
-    Returns:
-        bool: True jika tindakan berhasil, False jika semua percobaan gagal.
-    """
     for attempt in range(retries):
         try:
             if action():
                 return True
         except Exception as e:
-            print(f"\033[31mPercobaan {attempt + 1} gagal: {e}\033[0m")
+            log_message(f"Percobaan {attempt + 1} gagal: {e}", "ERROR")
         time.sleep(delay)
-    print("\033[31mSemua percobaan gagal.\033[0m")
+    log_message("Semua percobaan gagal.", "ERROR")
     return False
 
 # Fungsi untuk mendapatkan email acak
-def generate_email(email_base):
+def generate_email(user_email):
     random_number = random.randint(1000, 9999)
-    return f"{email_base}{random_number}@mailto.plus", f"{email_base}{random_number}"
+    return f"{user_email}{random_number}@mailto.plus", f"{user_email}{random_number}"
 
 # Fungsi untuk menunggu pemuatan halaman dinamis
 def wait_until_page_loaded(page, timeout=60000):
     try:
-        page.wait_for_load_state("networkidle", timeout=timeout)  # Tunggu hingga tidak ada aktivitas jaringan
-        print("\033[32mHalaman selesai dimuat.\033[0m")
+        page.wait_for_load_state("networkidle", timeout=timeout)
+        log_message("Halaman selesai dimuat.", "SUCCESS")
         return True
     except Exception as e:
-        print(f"\033[31mTimeout menunggu halaman selesai dimuat: {e}\033[0m")
+        log_message(f"Timeout menunggu halaman selesai dimuat: {e}", "ERROR")
         return False
 
 # Fungsi untuk mengonfirmasi email
@@ -45,36 +40,36 @@ def confirm_email(context, email_username):
     def confirm():
         page = context.new_page()
         page.goto('https://tempmail.plus/')
-        print("\033[34mMembuka halaman TempMail...\033[0m")
+        log_message("Membuka halaman TempMail...")
 
-        # Ganti email
         try:
+            # Ganti email
             page.fill('#pre_button', email_username)
             page.keyboard.press("Enter")
             wait_until_page_loaded(page)
-            print(f"\033[34mEmail berhasil diganti ke: {email_username}\033[0m")
+            log_message(f"Email berhasil diganti ke: {email_username}")
         except Exception as e:
-            print(f"\033[31mGagal mengatur email: {e}\033[0m")
+            log_message(f"Gagal mengatur email: {e}", "ERROR")
             return False
 
-        # Tunggu email konfirmasi
         try:
+            # Tunggu email konfirmasi
             email_selector = "text=Confirmation Email from BlockMesh Network"
             page.wait_for_selector(email_selector, timeout=60000)
             page.click(email_selector)
-            print("\033[34mEmail konfirmasi diterima.\033[0m")
+            log_message("Email konfirmasi diterima.")
         except Exception as e:
-            print(f"\033[31mGagal menemukan email konfirmasi: {e}\033[0m")
+            log_message(f"Gagal menemukan email konfirmasi: {e}", "ERROR")
             return False
 
-        # Klik link konfirmasi
         try:
+            # Klik link konfirmasi
             confirmation_link = page.locator("a:has-text('Click Here')")
             confirmation_link.wait_for(timeout=10000)
             confirmation_link.click()
-            print("\033[32mTautan konfirmasi berhasil diklik.\033[0m")
+            log_message("Tautan konfirmasi berhasil diklik.", "SUCCESS")
         except Exception as e:
-            print(f"\033[31mGagal mengklik tautan konfirmasi: {e}\033[0m")
+            log_message(f"Gagal mengklik tautan konfirmasi: {e}", "ERROR")
             return False
         finally:
             page.close()
@@ -84,34 +79,30 @@ def confirm_email(context, email_username):
     return retry_action(confirm)
 
 # Fungsi untuk menjalankan proses referral
-def restart_process(driver, referrals, referral_link, email_base, default_password):
-    failed_referrals = 0
+def restart_process(context, referral_url, user_email, default_password, referrals):
     successful_referrals = 0
+    failed_referrals = 0
 
     for i in range(referrals):
-        print(f"\033[34mMulai Referral {i + 1}/{referrals}...\033[0m")
+        log_message(f"Mulai Referral {i + 1}/{referrals}...")
 
         def process_referral():
-            page = driver.new_page()
-            page.goto("https://proxyium.com/?__cpo=1")
-            print("\033[34mMembuka Proxyium...\033[0m")
-
-            # Masukkan URL referral
+            page = context.new_page()
             try:
-                page.fill("#unique-form-control", referral_link)
+                # Buka halaman Proxyium
+                page.goto("https://proxyium.com/?__cpo=1")
+                log_message("Membuka Proxyium...")
+
+                # Masukkan URL referral
+                page.fill("#unique-form-control", referral_url)
                 page.click("#unique-btn-blue")
                 if not wait_until_page_loaded(page):
                     page.close()
                     return False
-                print("\033[34mBerhasil membuka halaman BlockMesh.\033[0m")
-            except Exception as e:
-                print(f"\033[31mGagal mengakses BlockMesh: {e}\033[0m")
-                page.close()
-                return False
+                log_message("Berhasil membuka halaman BlockMesh.")
 
-            # Daftar akun
-            try:
-                email, email_username = generate_email(email_base)
+                # Daftar akun
+                email, email_username = generate_email(user_email)
                 page.fill("#email", email)
                 page.fill("#password", default_password)
                 page.fill("#password_confirm", default_password)
@@ -119,22 +110,25 @@ def restart_process(driver, referrals, referral_link, email_base, default_passwo
                 if not wait_until_page_loaded(page):
                     page.close()
                     return False
-                print(f"\033[32mBerhasil Mendaftar - {email}\033[0m")
+                log_message(f"Berhasil Mendaftar - {email}", "SUCCESS")
+
                 with open("generated_email.txt", "a") as file:
                     file.write(f"{email}\n")
-            except Exception as e:
-                print(f"\033[31mGagal mendaftar akun: {e}\033[0m")
-                page.close()
-                return False
 
-            # Konfirmasi email
-            if confirm_email(driver, email_username):
-                print(f"\033[32mProses Referral {i + 1} BERHASIL!\033[0m")
-                page.close()
-                return True
-            else:
-                page.close()
+                # Konfirmasi email
+                if confirm_email(context, email_username):
+                    log_message(f"Proses Referral {i + 1} BERHASIL!", "SUCCESS")
+                    page.close()
+                    return True
+                else:
+                    page.close()
+                    return False
+
+            except Exception as e:
+                log_message(f"Error pada proses referral: {e}", "ERROR")
                 return False
+            finally:
+                page.close()
 
         if retry_action(process_referral):
             successful_referrals += 1
@@ -145,23 +139,30 @@ def restart_process(driver, referrals, referral_link, email_base, default_passwo
         time.sleep(random.uniform(5, 10))
 
     # Ringkasan hasil referral
-    print(f"\033[32mBERHASIL!! {successful_referrals} REFERRAL SUDAH DIBUAT\033[0m")
-    print(f"\033[31mGAGAL!! {failed_referrals} REFERRAL TIDAK DIBUAT\033[0m")
-    driver.close()
+    log_message(f"BERHASIL!! {successful_referrals} REFERRAL SUDAH DIBUAT", "SUCCESS")
+    log_message(f"GAGAL!! {failed_referrals} REFERRAL TIDAK DIBUAT", "ERROR")
 
 # Fungsi utama
 def main():
-    print("=== Konfigurasi Proses Referral ===")
-    referral_link = input("Masukkan Link Referral: ")
-    email_base = input("Masukkan Nama Akun Email (contoh: akunbm): ")
-    default_password = input("Masukkan Password Default: ")
+    # Input dari user
+    referral_url = input("Masukkan URL Referral: ")
+    user_email = input("Masukkan nama email (contoh: akunbm): ")
+    default_password = input("Masukkan password default: ")
     referrals = int(input("Berapa Referral yang ingin Anda buat? : "))
-    
+
+    if referrals <= 0:
+        log_message("Jumlah referral harus lebih dari 0!", "ERROR")
+        return
+
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         context = browser.new_context()
-        
-        restart_process(context, referrals, referral_link, email_base, default_password)
+
+        try:
+            restart_process(context, referral_url, user_email, default_password, referrals)
+        finally:
+            browser.close()
+            log_message("Browser ditutup.")
 
 if __name__ == "__main__":
     main()
