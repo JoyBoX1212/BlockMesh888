@@ -19,6 +19,7 @@ Selamat datang di **BlockMesh888**! 🎉 Proyek ini adalah skrip Python yang dir
 1. **Clone Proyek** 💻: Salin repositori ini ke komputer Anda.
     ```
     git clone https://github.com/marioatmajanugraha/BlockMesh888.git
+    lalu cd BlockMesh888
     ```
 2. **Instal Dependensi** ⚙️: Instal semua pustaka yang dibutuhkan dengan menjalankan perintah berikut:
     ```
@@ -30,7 +31,7 @@ Selamat datang di **BlockMesh888**! 🎉 Proyek ini adalah skrip Python yang dir
     ```
 4. **Jalankan Skrip** ▶️: Jalankan skrip Python untuk memulai proses referral:
     ```
-    python main.py
+    python index.py
     ```
 
 ### Persyaratan:
